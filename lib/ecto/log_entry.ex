@@ -71,12 +71,25 @@ defmodule Ecto.LogEntry do
 
     params = Enum.map params, fn
       %Ecto.Query.Tagged{value: value} -> value
-      value -> value
+      value -> parse_binary_ids(value)
     end
 
     {entry, ["QUERY", ?\s, ok_error(result), ok_source(source), time("db", query_time, true),
              time("decode", decode_time, false), time("queue", queue_time, false), ?\n,
              query, ?\s, inspect(params, charlists: false)]}
+  end
+
+  defp parse_binary_ids([]), do: []
+  defp parse_binary_ids([param | tail]) do
+    [try_cast_uuid(param) | parse_binary_ids(tail)]
+  end
+  defp parse_binary_ids(param), do: try_cast_uuid(param)
+
+  defp try_cast_uuid(param) do
+    case Ecto.UUID.cast(param) do
+      {:ok, casted} -> casted
+      :error -> param
+    end
   end
 
   ## Helpers
